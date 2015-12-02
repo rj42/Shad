@@ -1,6 +1,7 @@
 import argparse
 import pickle
 import random
+import re
 import string
 import sys
 from collections import defaultdict
@@ -13,12 +14,44 @@ DEFAULT_GENERATED_CORPUS_SIZE = 10 * 1000
 PUNCTUATION = set(string.punctuation)
 PUNCTUATION_END_SENTENCE = set(".?!")
 
+NONBREAKING_PREFIXES = { "Mr.", "i.e." }
+
 # ------------------------------ Utilities ---------------------------------- #
 
 
 def factory_defaultdict_int():
     return defaultdict(int)
 
+def split_paragraph_to_sentences(paragraph):
+    """
+    Simple splitter paragraph to sentences.
+
+    >>> "Hello, how are you Mr. Smith? Nice."
+    ["Hello, how are you Mr. Smith?", "Nice"]
+
+    :param paragraph: paragraph
+    :return: sentences
+    """
+    reg = re.compile("(\S.+?[.!?])(?=\s+|$)")
+    sentences = filter(lambda str: len(str.strip()) != 0, reg.split(paragraph))
+
+    result = []
+    current_sentence = ""
+    for sentence in sentences:
+        nonbreak = False
+        for prefix in NONBREAKING_PREFIXES:
+            if sentence.strip().endswith(prefix):
+                nonbreak = True
+        current_sentence += sentence
+        if not nonbreak:
+            result.append(current_sentence.strip())
+            current_sentence = ""
+        else:
+            current_sentence += " "
+
+    if len(current_sentence.strip()) != 0:
+        result.append(current_sentence.strip())
+    return result
 
 def tokenize_sentence(sentence):
     """
@@ -74,25 +107,26 @@ class LMBuilder():
         self.ngram_freq = defaultdict(factory_defaultdict_int)
         with open(input_corpus, "r") as f:
             text = f.read().strip()
-        sentences = text.split("\n")
+        paragraphs = text.split("\n")
 
         self.first_words_freq = defaultdict(int)
         self.ngram_freq = defaultdict(factory_defaultdict_int)
 
         # Get frequency.
-        for num, sentence in enumerate(sentences):
-            progress(num, len(sentences))
-            tokens = [token for token in tokenize_sentence(sentence)]
-            if len(tokens) == 0:
-                continue
-            self.first_words_freq[tokens[0]] += 1
-            self.first_words_freq[""] += 1
-            for order in range(1, self.order + 1):
-                for from_, to in zip(range(len(tokens) - order + 1), range(order, len(tokens) + 1)):
-                    prefix = tuple(tokens[from_:from_ + order - 1])
-                    suffix = tuple(tokens[from_ + order - 1:to])
-                    self.ngram_freq[prefix][suffix] += 1
-                    self.ngram_freq[prefix][""] += 1
+        for num, paragraph in enumerate(paragraphs):
+            progress(num, len(paragraphs))
+            for sentence in split_paragraph_to_sentences(paragraph):
+                tokens = [token for token in tokenize_sentence(paragraph)]
+                if len(tokens) == 0:
+                    continue
+                self.first_words_freq[tokens[0]] += 1
+                self.first_words_freq[""] += 1
+                for order in range(1, self.order + 1):
+                    for from_, to in zip(range(len(tokens) - order + 1), range(order, len(tokens) + 1)):
+                        prefix = tuple(tokens[from_:from_ + order - 1])
+                        suffix = tuple(tokens[from_ + order - 1:to])
+                        self.ngram_freq[prefix][suffix] += 1
+                        self.ngram_freq[prefix][""] += 1
 
         print()  # for progressbar
         return
@@ -111,7 +145,7 @@ class TextGenerator():
         with open(input, "rb") as f:
             self.order = pickle.load(f)
             self.first_words_freq = pickle.load(f)
-            self.model = pickle.load(f)
+            self.ngram_freq = pickle.load(f)
 
     def choose_random_next_word(self, history):
         result = ""
@@ -126,8 +160,8 @@ class TextGenerator():
                 if threshold <= cumulative_freq:
                     return word
         else:
-            threshold = random.randrange(0, self.model[history][""])
-            for suffix, freq in self.model[history].items():
+            threshold = random.randrange(0, self.ngram_freq[history][""])
+            for suffix, freq in self.ngram_freq[history].items():
                 if len(suffix) == 0:
                     continue
                 cumulative_freq += freq
@@ -194,6 +228,10 @@ def main():
                         default=DEFAULT_GENERATED_CORPUS_SIZE)
     args = parser.parse_args()
 
+    if args.mode == None:
+        parser.print_help()
+        return 1
+
     if args.mode == "build":
         builder = LMBuilder(args.order)
         builder.build(args.input)
@@ -204,6 +242,7 @@ def main():
     else:
         print("Unknown mode to run: " + args.mode)
         parser.print_help()
+        return 1
 
 
 if __name__ == "__main__":
