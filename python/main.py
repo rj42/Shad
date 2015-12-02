@@ -152,7 +152,7 @@ class TextGenerator():
         cumulative_freq = 0
 
         if len(history) == 0:
-            threshold = random.randrange(0, self.first_words_freq[""])
+            threshold = random.randrange(0, self.first_words_freq[""] + 1)
             for word, freq in self.first_words_freq.items():
                 if len(word) == 0:
                     continue
@@ -160,7 +160,7 @@ class TextGenerator():
                 if threshold <= cumulative_freq:
                     return word
         else:
-            threshold = random.randrange(0, self.ngram_freq[history][""])
+            threshold = random.randrange(0, self.ngram_freq[history][""] + 1)
             for suffix, freq in self.ngram_freq[history].items():
                 if len(suffix) == 0:
                     continue
