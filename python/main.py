@@ -27,7 +27,7 @@ def split_paragraph_to_sentences(paragraph):
     Simple splitter paragraph to sentences.
 
     >>> "Hello, how are you Mr. Smith? Nice."
-    ["Hello, how are you Mr. Smith?", "Nice"]
+    ["Hello, how are you Mr. Smith?", "Nice."]
 
     :param paragraph: paragraph
     :return: sentences
