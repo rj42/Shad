@@ -2,7 +2,7 @@
 # -*- coding:utf8 -*-
 
 # ---------------------------------------- Prerequests ------------------------------------------ #
-# Install this packages before use:
+# Install these packages before use:
 #   https://github.com/python-telegram-bot/python-telegram-bot
 #   https://github.com/tyrannosaurus/python-yandex-translate
 
